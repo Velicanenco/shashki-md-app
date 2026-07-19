@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SHASHKI MD</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0a0d;
+    --bg2: #101116;
+    --panel: #15161c;
+    --card: #1a1c24;
+    --card-border: #2a2d38;
+    --text: #f2f2f5;
+    --hint: #8a8d9a;
+    --red: #e8352f;
+    --red-soft: rgba(232,53,47,.14);
+    --green: #33c07a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    overflow-x:hidden;
+    min-height:100vh;
+  }
+
+  /* ---------- фонові градієнтні плями ---------- */
+  .bg-fx{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+  .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.35;}
+  .blob1{width:340px;height:340px;background:var(--red);top:-120px;left:-100px;animation:float1 16s ease-in-out infinite;}
+  .blob2{width:280px;height:280px;background:#3a6df0;bottom:-100px;right:-80px;animation:float2 19s ease-in-out infinite;}
+  .blob3{width:220px;height:220px;background:#8a3af0;top:40%;left:60%;animation:float3 22s ease-in-out infinite;opacity:.2;}
+  @keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,60px)}}
+  @keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
+  @keyframes float3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,40px) scale(1.15)}}
+
+  /* ---------- прелоадер ---------- */
+  #preloader{
+    position:fixed;inset:0;z-index:999;background:#000;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    transition:opacity .55s ease, visibility .55s ease;
+  }
+  #preloader.hide{opacity:0;visibility:hidden;pointer-events:none;}
+  .logo-anim{text-align:center;line-height:.86;}
+  .logo-line{
+    display:block; font-family:'Archivo Black',sans-serif; letter-spacing:1px;
+    opacity:0; transform:translateY(14px) scale(.92); filter:blur(6px);
+    animation:logoIn .7s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .logo-line1{font-size:44px;color:#fff;animation-delay:.05s;}
+  .logo-line2{font-size:44px;animation-delay:.28s;}
+  .logo-line2 .md{color:var(--red);font-size:24px;vertical-align:6px;margin-right:2px;}
+  .logo-line2 .shki{color:#fff;}
+  @keyframes logoIn{to{opacity:1;transform:translateY(0) scale(1);filter:blur(0);}}
+  .preload-bar{width:130px;height:3px;border-radius:3px;background:#232329;overflow:hidden;opacity:0;animation:fadeIn .4s .5s forwards;}
+  .preload-bar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--red),#ff7a6b);animation:barFill 1.1s .55s cubic-bezier(.3,.7,.3,1) forwards;}
+  @keyframes fadeIn{to{opacity:1;}}
+  @keyframes barFill{to{width:100%;}}
+
+  /* ---------- контент ---------- */
+  #app{position:relative;z-index:1;padding:16px 16px 100px;max-width:520px;margin:0 auto;opacity:0;}
+  #app.show{opacity:1;animation:appIn .5s ease forwards;}
+  @keyframes appIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .brand{display:flex;align-items:center;gap:9px;}
+  .brand-badge{
+    width:34px;height:34px;border-radius:9px;background:#000;border:1px solid var(--card-border);
+    display:flex;align-items:center;justify-content:center;font-family:'Archivo Black',sans-serif;
+    line-height:1;color:#fff;text-align:center;flex-shrink:0;overflow:hidden;
+  }
+  .brand-badge .s1{font-size:11px;display:block;}
+  .brand-badge .s2{font-size:11px;display:block;color:var(--red);margin-top:1px;}
+  .brand-name{font-family:'Archivo Black',sans-serif;font-size:16px;letter-spacing:.5px;}
+  .lang-toggle{
+    display:flex;background:var(--panel);border:1px solid var(--card-border);border-radius:20px;padding:3px;gap:2px;
+  }
+  .lang-toggle button{
+    border:none;background:transparent;color:var(--hint);font-size:11.5px;font-weight:700;
+    padding:6px 11px;border-radius:16px;cursor:pointer;transition:.2s;
+  }
+  .lang-toggle button.active{background:var(--red);color:#fff;}
+
+  .hero{margin-bottom:18px;}
+  .hero .eyebrow{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--green);
+    background:rgba(51,192,122,.12);border:1px solid rgba(51,192,122,.3);padding:4px 10px;border-radius:20px;margin-bottom:10px;
+  }
+  .hero .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .hero h1{font-family:'Archivo Black',sans-serif;font-size:23px;line-height:1.15;margin:0 0 6px;}
+  .hero h1 span{color:var(--red);}
+  .hero p{color:var(--hint);font-size:13.5px;margin:0;line-height:1.5;}
+
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 20px;}
+  .feature{
+    background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:10px 8px;text-align:center;
+    opacity:0;transform:translateY(10px);transition:opacity .5s ease, transform .5s ease, border-color .2s;
+  }
+  .feature.in-view{opacity:1;transform:translateY(0);}
+  .feature:nth-child(1){transition-delay:.05s;}
+  .feature:nth-child(2){transition-delay:.15s;}
+  .feature:nth-child(3){transition-delay:.25s;}
+  .feature .ic{font-size:18px;margin-bottom:5px;}
+  .feature .tt{font-size:10.5px;color:var(--hint);line-height:1.3;}
+
+  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--card-border);border-radius:14px;padding:4px;margin-bottom:16px;position:relative;}
+  .tab{
+    flex:1;text-align:center;padding:10px 6px;border-radius:11px;color:var(--hint);font-size:12.5px;font-weight:700;
+    cursor:pointer;position:relative;z-index:1;transition:color .25s;
+  }
+  .tab.active{color:#fff;}
+  .tab-indicator{
+    position:absolute;top:4px;bottom:4px;left:4px;width:calc(33.333% - 5.33px);
+    background:linear-gradient(135deg,var(--red),#c92a25);border-radius:11px;
+    transition:transform .3s cubic-bezier(.3,.8,.3,1);z-index:0;
+    box-shadow:0 4px 14px rgba(232,53,47,.35);
+  }
+
+  .panel{display:none;}
+  .panel.active{display:block;animation:panelIn .35s ease;}
+  @keyframes panelIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .card{
+    background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:16px;margin-bottom:14px;
+    transition:border-color .2s;
+  }
+  .card h2{font-size:14.5px;margin:0 0 12px;font-weight:800;}
+  label{display:block;font-size:11.5px;color:var(--hint);margin:12px 0 5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+  label:first-of-type{margin-top:0;}
+  select, input, textarea{
+    width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--card-border);
+    background:var(--bg2);color:var(--text);font-size:14px;font-family:inherit;transition:border-color .2s, box-shadow .2s;
+  }
+  select:focus, input:focus, textarea:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .phone-row{display:flex;gap:8px;}
+  .phone-prefix{
+    flex:0 0 64px;display:flex;align-items:center;justify-content:center;border-radius:10px;
+    background:var(--bg2);border:1px solid var(--card-border);font-weight:700;font-size:13.5px;color:var(--hint);
+  }
+  .checkbox-row{display:flex;align-items:center;gap:9px;margin-top:14px;cursor:pointer;user-select:none;}
+  .checkbox-row input{width:auto;accent-color:var(--red);}
+  .checkbox-row span{font-size:12.5px;color:var(--hint);}
+
+  .btn{
+    width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--red),#c92a25);
+    color:#fff;font-weight:800;font-size:14.5px;margin-top:16px;cursor:pointer;position:relative;overflow:hidden;
+    box-shadow:0 6px 18px rgba(232,53,47,.28);transition:transform .15s, box-shadow .15s;
+  }
+  .btn:active{transform:scale(.97);box-shadow:0 3px 10px rgba(232,53,47,.28);}
+  .btn.secondary{background:var(--panel);box-shadow:none;border:1px solid var(--card-border);color:var(--text);}
+
+  .result{
+    margin-top:14px;padding:14px;border-radius:12px;background:var(--bg2);border:1px solid var(--card-border);
+    font-size:13.5px;line-height:1.7;opacity:0;transform:translateY(6px);
+  }
+  .result.show{animation:resultIn .4s ease forwards;}
+  @keyframes resultIn{to{opacity:1;transform:translateY(0);}}
+  .result .row{display:flex;justify-content:space-between;padding:3px 0;}
+  .result .row b{font-weight:700;}
+  .result .total{
+    display:flex;justify-content:space-between;margin-top:8px;padding-top:10px;border-top:1px dashed var(--card-border);
+    font-size:16px;font-weight:800;
+  }
+  .result .total b{color:var(--red);font-family:'Archivo Black',sans-serif;font-size:18px;}
+  .disclaimer{font-size:11px;color:var(--hint);margin-top:10px;line-height:1.5;display:flex;gap:6px;}
+
+  .car-card{
+    background:var(--card);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;margin-bottom:12px;
+    opacity:0;transform:translateY(10px);transition:opacity .5s, transform .5s;
+  }
+  .car-card.in-view{opacity:1;transform:translateY(0);}
+  .car-photo{
+    height:120px;background:
+      radial-gradient(circle at 20% 20%, rgba(232,53,47,.25), transparent 55%),
+      linear-gradient(135deg,#1c1e27,#0e0f13);
+    display:flex;align-items:center;justify-content:center;font-size:38px;position:relative;
+  }
+  .car-photo .tag{
+    position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+    font-size:10px;padding:3px 8px;border-radius:8px;color:var(--hint);border:1px solid var(--card-border);
+  }
+  .car-photo .price-tag{
+    position:absolute;top:8px;right:8px;background:var(--red);font-size:12px;font-weight:800;
+    padding:4px 10px;border-radius:8px;color:#fff;
+  }
+  .car-body{padding:12px 14px;}
+  .car-title{font-weight:800;font-size:14.5px;margin-bottom:6px;}
+  .car-specs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+  .chip{font-size:10.5px;background:var(--bg2);border:1px solid var(--card-border);color:var(--hint);padding:3px 8px;border-radius:7px;}
+  .chip.warn{color:#e0a83c;border-color:rgba(224,168,60,.35);background:rgba(224,168,60,.08);}
+  .car-vin{font-size:10.5px;color:var(--hint);font-family:monospace;margin-bottom:8px;}
+  .car-actions{display:flex;gap:8px;}
+  .car-actions a, .car-actions button{
+    flex:1;text-align:center;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;border:none;
+  }
+  .car-actions .lnk{background:var(--bg2);color:var(--text);border:1px solid var(--card-border);}
+  .car-actions .cta{background:linear-gradient(135deg,var(--red),#c92a25);color:#fff;}
+
+  .status-msg{padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--card-border);font-size:13px;margin-top:12px;opacity:0;}
+  .status-msg.show{animation:resultIn .4s ease forwards;}
+
+  .hint{color:var(--hint);font-size:12px;}
+  .footer-note{text-align:center;color:var(--hint);font-size:10.5px;margin-top:22px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="preloader">
+  <div class="logo-anim">
+    <span class="logo-line logo-line1">SHA</span>
+    <span class="logo-line logo-line2"><span class="md">MD</span><span class="shki">SHKI</span></span>
+  </div>
+  <div class="preload-bar"><i></i></div>
+</div>
+
+<div class="bg-fx"><div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div></div>
+
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-badge"><span class="s1">SH</span><span class="s2">MD</span></div>
+      <div class="brand-name">SHASHKI <span style="color:var(--red)">MD</span></div>
+    </div>
+    <div class="lang-toggle">
+      <button data-lang="ru" class="active">RU</button>
+      <button data-lang="ro">RO</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="eyebrow"><span class="dot"></span><span data-i18n="eyebrow">Авто зі США · онлайн</span></div>
+    <h1 data-i18n="heroTitle">Авто из США под <span>ключ</span></h1>
+    <p data-i18n="heroSub">Розмитнення, підбір лотів з Copart/IAAI та заявка менеджеру — все в одному застосунку.</p>
+  </div>
+
+  <div class="features">
+    <div class="feature"><div class="ic">🎯</div><div class="tt" data-i18n="feat1">Реальні лоти Copart/IAAI</div></div>
+    <div class="feature"><div class="ic">🇲🇩</div><div class="tt" data-i18n="feat2">Розрахунок за тарифами Молдови</div></div>
+    <div class="feature"><div class="ic">👤</div><div class="tt" data-i18n="feat3">Персональний менеджер</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab-indicator" id="tabIndicator"></div>
+    <div class="tab active" data-tab="calc" data-i18n="tabCalc">🧮 Калькулятор</div>
+    <div class="tab" data-tab="catalog" data-i18n="tabCatalog">🚗 Каталог</div>
+    <div class="tab" data-tab="lead" data-i18n="tabLead">📝 Заявка</div>
+  </div>
+
+  <!-- КАЛЬКУЛЯТОР -->
+  <div class="panel active" id="panel-calc">
+    <div class="card">
+      <h2 data-i18n="calcTitle">Розрахунок розмитнення (Молдова)</h2>
+
+      <label data-i18n="lblFuel">Тип палива</label>
+      <select id="calcFuel">
+        <option value="petrol" data-i18n="fuelPetrol">⛽ Бензин</option>
+        <option value="diesel" data-i18n="fuelDiesel">🛢 Дизель</option>
+        <option value="hybrid" data-i18n="fuelHybrid">🔄 Гібрид (Full Hybrid)</option>
+        <option value="phev" data-i18n="fuelPhev">🔌 Plug-in Hybrid</option>
+        <option value="electric" data-i18n="fuelElectric">🔋 Електро</option>
+      </select>
+
+      <div id="volumeField">
+        <label data-i18n="lblVolume">Об'єм двигуна, см³</label>
+        <input id="calcVolume" type="number" placeholder="2000" inputmode="numeric">
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label data-i18n="lblAge">Вік авто, років</label>
+          <input id="calcAge" type="number" placeholder="5" inputmode="numeric">
+        </div>
+        <div>
+          <label data-i18n="lblPrice">Митна вартість, €</label>
+          <input id="calcPrice" type="number" placeholder="8000" inputmode="numeric">
+        </div>
+      </div>
+
+      <label class="checkbox-row" for="calcCommercial">
+        <input type="checkbox" id="calcCommercial">
+        <span data-i18n="lblCommercial">Комерційний ввіз / юридична особа (+TVA 20%)</span>
+      </label>
+
+      <button class="btn" onclick="calculate()" data-i18n="btnCalc">Розрахувати</button>
+      <div class="result" id="calcResult"></div>
+      <div class="disclaimer">⚠️ <span data-i18n="calcDisclaimer">Орієнтовний розрахунок за відкритими тарифами Молдови (accize + taxa de procesare vamală). Точну суму й курс уточнить митний брокер.</span></div>
+    </div>
+  </div>
+
+  <!-- КАТАЛОГ -->
+  <div class="panel" id="panel-catalog">
+    <div class="card">
+      <h2 data-i18n="catalogTitle">Актуальні лоти</h2>
+      <div id="catalogList"></div>
+    </div>
+  </div>
+
+  <!-- ЗАЯВКА -->
+  <div class="panel" id="panel-lead">
+    <div class="card">
+      <h2 data-i18n="leadTitle">Залишити заявку</h2>
+
+      <label data-i18n="lblName">Ім'я</label>
+      <input id="leadName" type="text" placeholder="...">
+
+      <label data-i18n="lblPhone">Телефон</label>
+      <div class="phone-row">
+        <div class="phone-prefix">+373</div>
+        <input id="leadPhone" type="tel" placeholder="6XXXXXXX" inputmode="numeric">
+      </div>
+
+      <label data-i18n="lblBrand">Марка авто</label>
+      <select id="leadBrand"></select>
+
+      <label data-i18n="lblSeries">Серія / модель</label>
+      <select id="leadSeries"></select>
+
+      <label data-i18n="lblBody">Тип кузова</label>
+      <select id="leadBody">
+        <option value="any" data-i18n="bodyAny">Будь-який</option>
+        <option value="sedan" data-i18n="bodySedan">Седан</option>
+        <option value="suv" data-i18n="bodySuv">Позашляховик/SUV</option>
+        <option value="hatchback" data-i18n="bodyHatch">Хетчбек</option>
+        <option value="minivan" data-i18n="bodyMinivan">Мінівен</option>
+        <option value="pickup" data-i18n="bodyPickup">Пікап</option>
+        <option value="coupe" data-i18n="bodyCoupe">Купе</option>
+      </select>
+
+      <label data-i18n="lblBudget">Бюджет (митна вартість)</label>
+      <select id="leadBudget">
+        <option value="0-3000">до $3 000</option>
+        <option value="3000-6000">$3 000–6 000</option>
+        <option value="6000-10000">$6 000–10 000</option>
+        <option value="10000-20000">$10 000–20 000</option>
+        <option value="20000-999999">$20 000+</option>
+        <option value="other" data-i18n="budgetOther">Інше (вкажу сам)</option>
+      </select>
+      <input id="leadBudgetOther" type="number" placeholder="$" style="display:none;margin-top:8px;" inputmode="numeric">
+
+      <label data-i18n="lblComment">Коментар (необов'язково)</label>
+      <textarea id="leadComment" rows="2" data-i18n-placeholder="commentPh" placeholder="Напр.: цікавить конкретний VIN або колір"></textarea>
+
+      <button class="btn" onclick="submitLead()" data-i18n="btnLead">Надіслати заявку</button>
+      <div class="status-msg" id="leadStatus"></div>
+    </div>
+  </div>
+
+  <div class="footer-note" data-i18n="footerNote">SHASHKI MD · перегін авто зі США · Копарт / АйАЕАй</div>
+</div>
+
+<script>
+/* ==================== I18N ==================== */
+const I18N = {
+  ru: {
+    eyebrow: "Авто из США · онлайн",
+    heroTitle: 'Авто из США под <span>ключ</span>',
+    heroSub: "Растаможка, подбор лотов с Copart/IAAI и заявка менеджеру — всё в одном приложении.",
+    feat1: "Реальные лоты Copart/IAAI",
+    feat2: "Расчёт по тарифам Молдовы",
+    feat3: "Персональный менеджер",
+    tabCalc: "🧮 Калькулятор", tabCatalog: "🚗 Каталог", tabLead: "📝 Заявка",
+    calcTitle: "Расчёт растаможки (Молдова)",
+    lblFuel: "Тип топлива",
+    fuelPetrol: "⛽ Бензин", fuelDiesel: "🛢 Дизель", fuelHybrid: "🔄 Гибрид (Full Hybrid)",
+    fuelPhev: "🔌 Plug-in Hybrid", fuelElectric: "🔋 Электро",
+    lblVolume: "Объём двигателя, см³", lblAge: "Возраст авто, лет", lblPrice: "Таможенная стоимость, €",
+    lblCommercial: "Коммерческий ввоз / юр.лицо (+TVA 20%)",
+    btnCalc: "Рассчитать",
+    calcDisclaimer: "Ориентировочный расчёт по открытым тарифам Молдовы (accize + taxa de procesare vamală). Точную сумму и курс уточнит таможенный брокер.",
+    catalogTitle: "Актуальные лоты",
+    leadTitle: "Оставить заявку",
+    lblName: "Имя", lblPhone: "Телефон", lblBrand: "Марка авто", lblSeries: "Серия / модель",
+    lblBody: "Тип кузова",
+    bodyAny: "Любой", bodySedan: "Седан", bodySuv: "Внедорожник/SUV", bodyHatch: "Хэтчбек",
+    bodyMinivan: "Минивен", bodyPickup: "Пикап", bodyCoupe: "Купе",
+    lblBudget: "Бюджет (таможенная стоимость)", budgetOther: "Другое (укажу сам)",
+    lblComment: "Комментарий (необязательно)", commentPh: "Напр.: интересует конкретный VIN или цвет",
+    btnLead: "Отправить заявку",
+    footerNote: "SHASHKI MD · перегон авто из США · Copart / IAAI",
+    fillNamePhone: "⚠️ Укажите имя и телефон.",
+    outsideTelegram: "⚠️ Эта demo-страница открыта вне Telegram, поэтому по-настоящему отправить заявку нельзя — откройте приложение через бота.",
+    sending: "Отправляем…",
+    matched: "✅ Нашли варианты — смотрите сообщение от бота!",
+    pending: "✅ Заявка принята, менеджер подберёт вариант и напишет вам в Telegram.",
+    seriesOther: "Другое (укажу в комментарии)",
+    wantThis: "Хочу этот вариант",
+    viewLot: "Смотреть на Copart",
+    catalogEmpty: "Каталог пока пуст.",
+    catalogFail: "Показываю демо-подборку (бэкенд не подключён).",
+    mileage: "Пробег", seller: "Продавец", location: "Локация", auctionDate: "Дата аукциона",
+    damage: "Повреждения", keys: "Ключи", titleCert: "Сертификат", engine: "Двигатель", drive: "Привод",
+    dutyLine: "Акциз (accize)", feeLine: "Сбор оформления (0.4%)", vatLine: "TVA (20%)", totalLine: "Итого к оплате",
+  },
+  ro: {
+    eyebrow: "Auto din SUA · online",
+    heroTitle: 'Auto din SUA la <span>cheie</span>',
+    heroSub: "Vămuire, selectare loturi de pe Copart/IAAI și cerere către manager — totul într-o singură aplicație.",
+    feat1: "Loturi reale Copart/IAAI",
+    feat2: "Calcul după tarifele Moldovei",
+    feat3: "Manager personal",
+    tabCalc: "🧮 Calculator", tabCatalog: "🚗 Catalog", tabLead: "📝 Cerere",
+    calcTitle: "Calcul vămuire (Moldova)",
+    lblFuel: "Tip combustibil",
+    fuelPetrol: "⛽ Benzină", fuelDiesel: "🛢 Diesel", fuelHybrid: "🔄 Hibrid (Full Hybrid)",
+    fuelPhev: "🔌 Plug-in Hybrid", fuelElectric: "🔋 Electric",
+    lblVolume: "Capacitate motor, cm³", lblAge: "Vechimea autovehiculului, ani", lblPrice: "Valoarea în vamă, €",
+    lblCommercial: "Import comercial / persoană juridică (+TVA 20%)",
+    btnCalc: "Calculează",
+    calcDisclaimer: "Calcul orientativ conform tarifelor publice ale Moldovei (accize + taxa de procesare vamală). Suma exactă și cursul le confirmă brokerul vamal.",
+    catalogTitle: "Loturi disponibile",
+    leadTitle: "Trimite o cerere",
+    lblName: "Nume", lblPhone: "Telefon", lblBrand: "Marca auto", lblSeries: "Serie / model",
+    lblBody: "Tip caroserie",
+    bodyAny: "Oricare", bodySedan: "Sedan", bodySuv: "SUV", bodyHatch: "Hatchback",
+    bodyMinivan: "Minivan", bodyPickup: "Pickup", bodyCoupe: "Coupe",
+    lblBudget: "Buget (valoarea în vamă)", budgetOther: "Altul (indic eu)",
+    lblComment: "Comentariu (opțional)", commentPh: "Ex.: mă interesează un VIN sau o culoare anume",
+    btnLead: "Trimite cererea",
+    footerNote: "SHASHKI MD · transport auto din SUA · Copart / IAAI",
+    fillNamePhone: "⚠️ Indicați numele și telefonul.",
+    outsideTelegram: "⚠️ Această pagină demo este deschisă în afara Telegram, deci cererea nu poate fi trimisă cu adevărat — deschideți aplicația prin bot.",
+    sending: "Se trimite…",
+    matched: "✅ Am găsit variante — vedeți mesajul de la bot!",
+    pending: "✅ Cererea a fost înregistrată, managerul va găsi o variantă și vă va scrie pe Telegram.",
+    seriesOther: "Altul (indic în comentariu)",
+    wantThis: "Vreau această variantă",
+    viewLot: "Vezi pe Copart",
+    catalogEmpty: "Catalogul este momentan gol.",
+    catalogFail: "Se afișează selecția demo (backend-ul nu este conectat).",
+    mileage: "Rulaj", seller: "Vânzător", location: "Locație", auctionDate: "Data licitației",
+    damage: "Daune", keys: "Chei", titleCert: "Certificat", engine: "Motor", drive: "Tracțiune",
+    dutyLine: "Accize", feeLine: "Taxă de procesare (0.4%)", vatLine: "TVA (20%)", totalLine: "Total de plată",
+  }
+};
+let lang = 'ru';
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if (I18N[lang][key] !== undefined) el.innerHTML = I18N[lang][key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (I18N[lang][key] !== undefined) el.placeholder = I18N[lang][key];
+  });
+  document.documentElement.lang = lang;
+  renderBrandOptions();
+  renderCatalog();
+}
+
+document.querySelectorAll('.lang-toggle button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.lang-toggle button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    lang = btn.dataset.lang;
+    applyI18n();
+  });
+});
+
+/* ==================== ПРЕЛОАДЕР ==================== */
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{
+    document.getElementById('preloader').classList.add('hide');
+    document.getElementById('app').classList.add('show');
+    initScrollReveal();
+  }, 1500);
+});
+
+/* ==================== ТАБИ ==================== */
+const tabs = document.querySelectorAll('.tab');
+const tabIndicator = document.getElementById('tabIndicator');
+function moveIndicator(i){ tabIndicator.style.transform = `translateX(${i*100}%)`; }
+tabs.forEach((tab, i)=>{
+  tab.addEventListener('click', ()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+    moveIndicator(i);
+  });
+});
+
+/* ==================== SCROLL REVEAL ==================== */
+function initScrollReveal(){
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in-view'); });
+  }, {threshold:.2});
+  document.querySelectorAll('.feature, .car-card').forEach(el=>io.observe(el));
+}
+
+/* ==================== TELEGRAM ==================== */
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
+
+/* ==================== КАЛЬКУЛЯТОР (Молдова) ==================== */
+document.getElementById('calcFuel').addEventListener('change', e=>{
+  document.getElementById('volumeField').style.display = e.target.value === 'electric' ? 'none' : 'block';
+});
+
+// Ставки accize, MDL за см³. Джерело: відкриті калькулятори митних брокерів Молдови
+// (totalasig.md, rapidasig.md), звірено по 2 незалежних джерелах на вік 0-2 і 20+ років.
+// Проміжні значення (вік ~7 років) інтерпольовані лінійно між опорними точками —
+// перед використанням із реальними клієнтами звірте таблицю з чинним митним брокером.
+const PETROL_BRACKETS = [
+  {max: 1000, rates: {2: 9.56,  7: 11.25, 20: 66.24}},
+  {max: 1500, rates: {2: 12.23, 7: 14.19, 20: 71.79}},
+  {max: 2000, rates: {2: 18.90, 7: 21.53, 20: 85.63}},
+  {max: 3000, rates: {2: 31.14, 7: 34.99, 20: 111.05}},
+  {max: Infinity, rates: {2: 55.60, 7: 61.90, 20: 161.84}},
+];
+const DIESEL_BRACKETS = [
+  {max: 1500, rates: {2: 12.23, 20: 71.79}},
+  {max: 2500, rates: {2: 31.14, 20: 111.05}},
+  {max: Infinity, rates: {2: 55.60, 20: 161.84}},
+];
+const EUR_TO_MDL = 20.08; // орієнтовний курс НБМ, уточнюється на дату розмитнення
+
+function interpRate(ratesObj, age){
+  const points = Object.keys(ratesObj).map(Number).sort((a,b)=>a-b);
+  if (age <= points[0]) return ratesObj[points[0]];
+  if (age >= points[points.length-1]) return ratesObj[points[points.length-1]];
+  for (let i=0;i<points.length-1;i++){
+    const a=points[i], b=points[i+1];
+    if (age>=a && age<=b){
+      const t=(age-a)/(b-a);
+      return ratesObj[a] + t*(ratesObj[b]-ratesObj[a]);
+    }
+  }
+  return ratesObj[points[0]];
+}
+function findBracket(brackets, volume){
+  return brackets.find(b=>volume<=b.max) || brackets[brackets.length-1];
+}
+function luxuryTaxRate(valueMdl){
+  // Taxa de lux — застосовується лише при митній вартості > 600 000 MDL.
+  // Проміжні щаблі між 800 001 і 1 800 000 MDL інтерпольовані (орієнтовно).
+  if (valueMdl <= 600000) return 0;
+  if (valueMdl <= 700000) return 0.02;
+  if (valueMdl <= 800000) return 0.03;
+  if (valueMdl <= 1800000) return 0.03 + (0.10-0.03) * ((valueMdl-800000)/(1800000-800000));
+  return 0.10;
+}
+
+function calculate(){
+  const fuel = document.getElementById('calcFuel').value;
+  const volume = parseFloat(document.getElementById('calcVolume').value) || 0;
+  const age = parseInt(document.getElementById('calcAge').value) || 0;
+  const valueEur = parseFloat(document.getElementById('calcPrice').value) || 0;
+  const commercial = document.getElementById('calcCommercial').checked;
+
+  const valueMdl = valueEur * EUR_TO_MDL;
+
+  let excise = 0;
+  if (fuel !== 'electric' && volume > 0){
+    const brackets = fuel === 'diesel' ? DIESEL_BRACKETS : PETROL_BRACKETS;
+    const bracket = findBracket(brackets, volume);
+    let rate = interpRate(bracket.rates, Math.max(age,0) || 0.01);
+    if (fuel === 'hybrid') rate *= 0.75;   // full hybrid: -25%
+    if (fuel === 'phev') rate *= 0.50;     // plug-in hybrid: -50%
+    excise = volume * rate;
+  }
+  // electric => excise = 0
+
+  const processingFee = valueMdl * 0.004; // taxa de procesare vamală ≈ 0.4%
+  const luxRate = luxuryTaxRate(valueMdl);
+  const luxuryTax = valueMdl * luxRate;
+  const vat = commercial ? 0.20 * (valueMdl + excise + luxuryTax) : 0;
+  const totalMdl = excise + processingFee + luxuryTax + vat;
+  const totalEur = totalMdl / EUR_TO_MDL;
+
+  const numLocale = lang === 'ro' ? 'ro-RO' : 'ru-RU';
+  const fmtMdl = n => Math.round(n).toLocaleString(numLocale) + ' MDL';
+  const fmtEur = n => '≈ ' + Math.round(n).toLocaleString(numLocale) + ' €';
+
+  const box = document.getElementById('calcResult');
+  box.classList.remove('show');
+  let luxLine = luxuryTax > 0 ? `<div class="row"><span>Taxa de lux</span><b>${fmtMdl(luxuryTax)}</b></div>` : '';
+  let vatLine = commercial ? `<div class="row"><span>${I18N[lang].vatLine}</span><b>${fmtMdl(vat)}</b></div>` : '';
+  box.innerHTML = `
+    <div class="row"><span>${I18N[lang].dutyLine}</span><b>${fmtMdl(excise)}</b></div>
+    <div class="row"><span>${I18N[lang].feeLine}</span><b>${fmtMdl(processingFee)}</b></div>
+    ${luxLine}${vatLine}
+    <div class="total"><span>${I18N[lang].totalLine}</span><b>${fmtMdl(totalMdl)}</b></div>
+    <div class="hint" style="margin-top:2px;">${fmtEur(totalEur)} · курс ${EUR_TO_MDL} MDL/EUR</div>
+  `;
+  void box.offsetWidth;
+  box.classList.add('show');
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+}
+
+/* ==================== БРЕНД / СЕРІЯ ==================== */
+const BRANDS = {
+  'BMW': ['1 Series','2 Series','3 Series','4 Series','5 Series','6 Series','7 Series','8 Series',
+          'X1','X2','X3','X4','X5','X6','X7','Z4','M2','M3','M4','M5','M8','i3','i4','i7','iX'],
+  'Mercedes-Benz': ['A-Class','B-Class','C-Class','E-Class','S-Class','CLA','CLS','GLA','GLB','GLC','GLE','GLS','G-Class','AMG GT','EQ'],
+  'Audi': ['A1','A3','A4','A5','A6','A7','A8','Q2','Q3','Q5','Q7','Q8','TT','R8','e-tron'],
+  'Toyota': ['Corolla','Camry','Avalon','RAV4','Highlander','4Runner','Land Cruiser','Tacoma','Tundra','Sienna','Prius','Supra'],
+  'Honda': ['Civic','Accord','CR-V','HR-V','Pilot','Odyssey','Ridgeline'],
+  'Lexus': ['IS','ES','GS','LS','NX','RX','GX','LX','RC','LC'],
+  'Ford': ['Fiesta','Focus','Fusion','Mustang','Escape','Edge','Explorer','Expedition','F-150','Ranger','Bronco'],
+  'Volkswagen': ['Polo','Golf','Jetta','Passat','Arteon','Tiguan','Atlas','Touareg'],
+  'Nissan': ['Sentra','Altima','Maxima','Rogue','Murano','Pathfinder','Armada','Titan'],
+  'Hyundai/Kia': ['Elantra','Sonata','Tucson','Santa Fe','Palisade','Rio','Forte','K5','Sportage','Sorento','Telluride'],
+  'Jeep': ['Compass','Cherokee','Grand Cherokee','Wrangler','Gladiator'],
+  'Tesla': ['Model 3','Model S','Model X','Model Y','Cybertruck'],
+};
+function renderBrandOptions(){
+  const brandSel = document.getElementById('leadBrand');
+  const prevBrand = brandSel.value;
+  brandSel.innerHTML = Object.keys(BRANDS).map(b=>`<option value="${b}">${b}</option>`).join('')
+    + `<option value="other">${I18N[lang].seriesOther}</option>`;
+  if (prevBrand) brandSel.value = prevBrand;
+  renderSeriesOptions();
+}
+function renderSeriesOptions(){
+  const brand = document.getElementById('leadBrand').value;
+  const seriesSel = document.getElementById('leadSeries');
+  const list = BRANDS[brand] || [];
+  seriesSel.innerHTML = list.map(s=>`<option value="${s}">${s}</option>`).join('')
+    + `<option value="other">${I18N[lang].seriesOther}</option>`;
+}
+document.getElementById('leadBrand').addEventListener('change', renderSeriesOptions);
+document.getElementById('leadBudget').addEventListener('change', e=>{
+  document.getElementById('leadBudgetOther').style.display = e.target.value === 'other' ? 'block' : 'none';
+});
+
+/* ==================== КАТАЛОГ ==================== */
+const BODY_LABELS_KEY = {sedan:'bodySedan', suv:'bodySuv', hatchback:'bodyHatch', minivan:'bodyMinivan', pickup:'bodyPickup', coupe:'bodyCoupe'};
+
+// Демо-каталог (реальні лоти) — у бойовій версії підтягується з /api/cars (Google Sheet)
+const DEMO_CARS = [
+  {
+    title: "2017 BMW 330I SPORT", body: "sedan", price: 3450, mileage: "172 942 mi (ACTUAL)",
+    fuel: "GAS", volume: 2000, drive: "RWD", engine: "2.0L 4",
+    vin: "WBA8B9G50HNU49127", location: "TX - SAN ANTONIO", auctionDate: "2026-07-21 04:00",
+    damage: "MECHANICAL / MINOR DENT-SCRATCHES", keys: "No", titleCert: "CERTIFICATE OF TITLE",
+    seller: "дилер", lot: "47480266",
+  },
+  {
+    title: "2015 BMW 320I", body: "sedan", price: 3100, mileage: "0 mi (NOT ACTUAL)",
+    fuel: "GAS", volume: 2000, drive: "RWD", engine: "2.0L 4",
+    vin: "WBA3B1C52FK135821", location: "CA - SAN DIEGO", auctionDate: "2026-07-21 04:00",
+    damage: "MINOR DENT/SCRATCHES", keys: "No", titleCert: "DIS/DLR/EXP ONLY CLEAN TITLE",
+    seller: "дилер", lot: "48527516",
+  },
+  {
+    title: "2016 BMW 320I", body: "sedan", price: 2775, mileage: "171 116 mi (ACTUAL)",
+    fuel: "GAS", volume: 2000, drive: "RWD", engine: "2.0L 4",
+    vin: "WBA8A9C58GK618643", location: "CA - SAN BERNARDINO", auctionDate: "2026-07-20 22:00",
+    damage: "MINOR DENT/SCRATCHES", keys: "No", titleCert: "DIS/DLR/EXP ONLY CLEAN TITLE",
+    seller: "дилер", lot: "49263166",
+  },
+];
+
+let catalogCars = null;
+async function loadCatalog(){
+  try{
+    const resp = await fetch('/api/cars');
+    if(!resp.ok) throw new Error('no backend');
+    const data = await resp.json();
+    catalogCars = data.length ? data : DEMO_CARS;
+  }catch(e){
+    catalogCars = DEMO_CARS;
+  }
+  renderCatalog();
+}
+function renderCatalog(){
+  const list = document.getElementById('catalogList');
+  if (!list) return;
+  const cars = catalogCars || DEMO_CARS;
+  if (!cars.length){ list.innerHTML = `<div class="hint">${I18N[lang].catalogEmpty}</div>`; return; }
+  list.innerHTML = cars.map(c=>{
+    const bodyLabel = I18N[lang][BODY_LABELS_KEY[c.body]] || c.body;
+    const specs = [
+      c.mileage ? `<span class="chip">📏 ${I18N[lang].mileage}: ${c.mileage}</span>` : '',
+      c.engine ? `<span class="chip">🔧 ${I18N[lang].engine}: ${c.engine}</span>` : '',
+      c.drive ? `<span class="chip">⚙️ ${I18N[lang].drive}: ${c.drive}</span>` : '',
+      c.location ? `<span class="chip">📍 ${I18N[lang].location}: ${c.location}</span>` : '',
+      c.keys ? `<span class="chip warn">🔑 ${I18N[lang].keys}: ${c.keys}</span>` : '',
+      c.damage ? `<span class="chip warn">⚠️ ${c.damage}</span>` : '',
+    ].join('');
+    const lotUrl = c.lot ? `https://www.copart.com/lot/${c.lot}` : '#';
+    return `
+      <div class="car-card">
+        <div class="car-photo">
+          🚘
+          <div class="tag">${bodyLabel}</div>
+          <div class="price-tag">$${Number(c.price).toLocaleString('en-US')}</div>
+        </div>
+        <div class="car-body">
+          <div class="car-title">${c.title}</div>
+          <div class="car-specs">${specs}</div>
+          ${c.vin ? `<div class="car-vin">VIN: ${c.vin}</div>` : ''}
+          <div class="car-actions">
+            <a class="lnk" href="${lotUrl}" target="_blank" rel="noopener">${I18N[lang].viewLot}</a>
+            <button class="cta" onclick="wantCar('${(c.title||'').replace(/'/g,"")}')">${I18N[lang].wantThis}</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  document.querySelectorAll('.car-card').forEach(el=>{
+    if (window.IntersectionObserver) {
+      const io = new IntersectionObserver(entries=>{
+        entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in-view'); });
+      }, {threshold:.15});
+      io.observe(el);
+    } else {
+      el.classList.add('in-view');
+    }
+  });
+}
+function wantCar(title){
+  document.getElementById('leadComment').value = (lang==='ro' ? 'Mă interesează: ' : 'Интересует: ') + title;
+  tabs.forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.tab[data-tab="lead"]').classList.add('active');
+  document.getElementById('panel-lead').classList.add('active');
+  moveIndicator(2);
+}
+
+/* ==================== ЗАЯВКА ==================== */
+async function submitLead(){
+  const budgetRaw = document.getElementById('leadBudget').value;
+  let budget_lo, budget_hi;
+  if (budgetRaw === 'other'){
+    const v = parseInt(document.getElementById('leadBudgetOther').value) || 0;
+    budget_lo = 0; budget_hi = v || 999999;
+  } else {
+    [budget_lo, budget_hi] = budgetRaw.split('-').map(Number);
+  }
+  const brand = document.getElementById('leadBrand').value;
+  const series = document.getElementById('leadSeries').value;
+  const phoneDigits = document.getElementById('leadPhone').value.trim();
+
+  const payload = {
+    init_data: tg ? tg.initData : '',
+    name: document.getElementById('leadName').value.trim(),
+    phone: '+373' + phoneDigits,
+    budget_lo, budget_hi,
+    body: document.getElementById('leadBody').value,
+    fuel: '',
+    comment: `[${brand} ${series}] ` + document.getElementById('leadComment').value.trim(),
+  };
+  const status = document.getElementById('leadStatus');
+  status.classList.remove('show');
+
+  if (!payload.name || !phoneDigits){
+    status.innerHTML = I18N[lang].fillNamePhone;
+    void status.offsetWidth; status.classList.add('show');
+    return;
+  }
+  if (!tg || !tg.initData){
+    status.innerHTML = I18N[lang].outsideTelegram;
+    void status.offsetWidth; status.classList.add('show');
+    return;
+  }
+
+  status.innerHTML = I18N[lang].sending;
+  void status.offsetWidth; status.classList.add('show');
+  try{
+    const resp = await fetch('/api/leads', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'error');
+    status.innerHTML = data.status === 'matched' ? I18N[lang].matched : I18N[lang].pending;
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  }catch(e){
+    status.innerHTML = '⚠️ ' + e.message;
+  }
+}
+
+/* ==================== СТАРТ ==================== */
+applyI18n();
+loadCatalog();
+</script>
+</body>
+</html>
