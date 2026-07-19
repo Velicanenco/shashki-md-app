@@ -2,7 +2,7 @@
 GoAuto Mini App — бэкенд.
 
 Что делает этот сервис:
-  1. Отдаёт статический фронтенд Telegram Mini App (папка ../webapp).
+  1. Отдаёт статический фронтенд Telegram Mini App.
   2. Отдаёт каталог машин (GET /api/cars) — читает публичный Google Sheet
      (владелец бизнеса сам ведёт эту таблицу, как в MOCK_CARS раньше).
   3. Принимает заявки клиентов из Mini App (POST /api/leads):
@@ -17,11 +17,6 @@ GoAuto Mini App — бэкенд.
   4. Обрабатывает ответ владельца: он просто делает Reply в Telegram на
      сообщение с заявкой и пишет предложение клиенту — бот сам находит,
      какому клиенту это переслать, ориентируясь по id сообщения.
-
-Это MVP-архитектура: вместо полноценной БД используется SQLite (файл
-рядом с этим скриптом) и обычный Google Sheet вместо админ-панели.
-Для реального использования сервис должен быть развёрнут на сервере с
-HTTPS (см. README.md) — Telegram Mini Apps не открываются по http.
 """
 
 import asyncio
@@ -60,15 +55,23 @@ CARS_SHEET_CSV_URL = os.getenv("CARS_SHEET_CSV_URL", "")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "SHASHKI MD")
 
 BASE_DIR = Path(__file__).resolve().parent
-WEBAPP_DIR = BASE_DIR.parent / "webapp"
 DB_PATH = BASE_DIR / "leads.db"
+
+def _find_webapp_dir():
+    candidates = [
+        BASE_DIR.parent / "webapp",
+        BASE_DIR / "webapp",
+        BASE_DIR,
+    ]
+    for c in candidates:
+        if (c / "index.html").exists():
+            return c
+    return BASE_DIR
+
+WEBAPP_DIR = _find_webapp_dir()
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("goauto")
-
-# ---------------------------------------------------------------------------
-# База данных заявок (SQLite, без внешних зависимостей)
-# ---------------------------------------------------------------------------
 
 def db():
     conn = sqlite3.connect(DB_PATH)
@@ -97,12 +100,8 @@ def init_db():
         """)
 
 
-# ---------------------------------------------------------------------------
-# Каталог машин из Google Sheet (публичная ссылка вида .../export?format=csv)
-# ---------------------------------------------------------------------------
-
 _cars_cache = {"ts": 0.0, "rows": []}
-CARS_CACHE_TTL = 120  # секунд
+CARS_CACHE_TTL = 120
 
 
 async def get_cars(force: bool = False):
@@ -127,7 +126,6 @@ async def get_cars(force: bool = False):
                     "volume": int(float(r.get("volume") or 0)),
                     "note": r.get("note", "").strip(),
                     "photo_url": r.get("photo_url", "").strip(),
-                    # додаткові поля — картка в Mini App показує їх, якщо заповнені
                     "vin": r.get("vin", "").strip(),
                     "engine": r.get("engine", "").strip(),
                     "drive": r.get("drive", "").strip(),
@@ -140,11 +138,11 @@ async def get_cars(force: bool = False):
                     "lot": r.get("lot", "").strip(),
                 })
             except (ValueError, TypeError):
-                log.warning("Пропускаю некоректний рядок каталогу: %s", r)
+                log.warning("Пропускаю некорректную строку каталога: %s", r)
         _cars_cache["rows"] = rows
         _cars_cache["ts"] = time.time()
     except Exception:
-        log.exception("Не вдалось оновити каталог з Google Sheet, лишаю старий кеш")
+        log.exception("Не удалось обновить каталог из Google Sheet, оставляю старый кеш")
     return _cars_cache["rows"]
 
 
@@ -155,10 +153,6 @@ def match_cars(cars, budget_lo, budget_hi, body):
         and (body in ("", "any") or c["body"] == body)
     ][:3]
 
-
-# ---------------------------------------------------------------------------
-# Перевірка Telegram WebApp initData (щоб заявки не можна було підробити)
-# ---------------------------------------------------------------------------
 
 def validate_init_data(init_data: str, bot_token: str):
     try:
@@ -179,10 +173,6 @@ def validate_init_data(init_data: str, bot_token: str):
     return {"raw": parsed, "user": user}
 
 
-# ---------------------------------------------------------------------------
-# Telegram-бот: /start із кнопкою Mini App + обробка Reply від власника
-# ---------------------------------------------------------------------------
-
 router = Router()
 
 
@@ -200,8 +190,6 @@ async def cmd_start(message: Message):
 
 @router.message(F.reply_to_message)
 async def admin_reply_handler(message: Message, bot: Bot):
-    """Владелец отвечает Reply на сообщение с заявкой — бот сам находит
-    нужного клиента по id сообщения и пересылает ответ именно ему."""
     if str(message.chat.id) != str(ADMIN_CHAT_ID):
         return
 
@@ -212,7 +200,7 @@ async def admin_reply_handler(message: Message, bot: Bot):
         ).fetchone()
 
     if not row:
-        return  # это Reply не на сообщение о заявке
+        return
 
     offer_text = (
         f"📩 <b>Менеджер подобрал для вас вариант</b>\n\n{message.text or message.caption or ''}"
@@ -244,14 +232,14 @@ async def lifespan(app: FastAPI):
         dp = Dispatcher(storage=MemoryStorage())
         dp.include_router(router)
         await bot.delete_webhook(drop_pending_updates=True)
-        await bot.set_my_commands([BotCommand(command="start", description="Відкрити застосунок")])
+        await bot.set_my_commands([BotCommand(command="start", description="Открыть приложение")])
         if WEBAPP_URL:
             await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
-                text="Застосунок", web_app=WebAppInfo(url=WEBAPP_URL)))
+                text="Приложение", web_app=WebAppInfo(url=WEBAPP_URL)))
         _polling_task = asyncio.create_task(dp.start_polling(bot))
-        log.info("Бот запущено (long polling)")
+        log.info("Бот запущен (long polling)")
     else:
-        log.warning("BOT_TOKEN не задано — бот не запущено, працює лише REST API")
+        log.warning("BOT_TOKEN не задан — бот не запущен, работает только REST API")
     yield
     if _polling_task:
         _polling_task.cancel()
@@ -261,10 +249,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="GoAuto Mini App backend", lifespan=lifespan)
 
-
-# ---------------------------------------------------------------------------
-# REST API для Mini App
-# ---------------------------------------------------------------------------
 
 @app.get("/api/cars")
 async def api_cars():
@@ -338,9 +322,12 @@ async def api_create_lead(lead: LeadIn):
     return {"status": "pending"}
 
 
-# Статичний фронтенд Mini App (має бути останнім — щоб не перекривав /api/*)
 app.mount("/", StaticFiles(directory=WEBAPP_DIR, html=True), name="webapp")
 
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
 
 if __name__ == "__main__":
     import uvicorn
